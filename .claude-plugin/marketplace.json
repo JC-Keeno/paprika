@@ -1,0 +1,25 @@
+{
+  "name": "paprika",
+  "owner": {
+    "name": "Keeno"
+  },
+  "description": "Paprika: lets your agent play and test the three.js games it builds.",
+  "plugins": [
+    {
+      "name": "paprika",
+      "source": "./",
+      "description": "Lets your agent play and test the three.js game it builds: headless Chrome on a paused, seeded clock, keys in and game state out, pictures, mesh stats, procedural geometry, and a check after every edit that says when the game breaks.",
+      "keywords": [
+        "threejs",
+        "three.js",
+        "game",
+        "gamedev",
+        "webgl",
+        "react-three-fiber",
+        "testing",
+        "headless",
+        "agent"
+      ]
+    }
+  ]
+}

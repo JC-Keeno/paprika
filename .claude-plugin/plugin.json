@@ -1,0 +1,29 @@
+{
+  "name": "paprika",
+  "version": "0.1.0",
+  "description": "Lets your agent play and test the three.js game it builds: headless Chrome on a paused, seeded clock, keys in and game state out, pictures, mesh stats, procedural geometry, and a check after every edit that says when the game breaks.",
+  "keywords": [
+    "threejs",
+    "three.js",
+    "game",
+    "gamedev",
+    "webgl",
+    "react-three-fiber",
+    "testing",
+    "headless",
+    "agent"
+  ],
+  "author": {
+    "name": "Keeno"
+  },
+  "mcpServers": {
+    "game-harness": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/src/cli.js",
+        "serve"
+      ]
+    }
+  },
+  "hooks": "./hooks/hooks.json"
+}

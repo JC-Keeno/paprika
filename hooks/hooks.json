@@ -1,0 +1,36 @@
+{
+  "description": "After file edits, run the project's game contract in the background and wake the agent when the failing keypoints change; refuse edits to game-contract.json.",
+  "hooks": {
+    "PostToolBatch": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/after-batch.js"
+            ],
+            "asyncRewake": true,
+            "timeout": 180
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/guard.js"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

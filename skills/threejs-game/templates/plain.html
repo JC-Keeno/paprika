@@ -1,0 +1,67 @@
+<!doctype html>
+<!-- Plain three.js template: one page, no build. Arrow keys move a box; touching the coin scores and moves the coin.
+     Needs `bun add three` (the import map points into node_modules). Open it with game_open { url: "index.html" }. Replace the rules, keep the shape:
+     state in plain variables, step(dt) once per frame, one input path for keys and act(), window.__game at the end. -->
+<html><head><meta charset="utf-8"><title>Game</title>
+<style>html,body{margin:0;background:#111;overflow:hidden}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+const SPEED = 4;                       // units per second
+const held = new Set();
+let score = 0;
+let player = { x: 0, y: 0 }, coin = { x: 3, y: 2 };
+
+function step(dt) {
+  player.x += ((held.has('ArrowRight') ? 1 : 0) - (held.has('ArrowLeft') ? 1 : 0)) * SPEED * dt;
+  player.y += ((held.has('ArrowUp') ? 1 : 0) - (held.has('ArrowDown') ? 1 : 0)) * SPEED * dt;
+  if (Math.hypot(player.x - coin.x, player.y - coin.y) < 0.8) {
+    score++;
+    coin = { x: Math.round(Math.random() * 8 - 4), y: Math.round(Math.random() * 6 - 3) };   // Math.random: the harness seeds it
+  }
+}
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(0, 0, 12);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 2));
+const box = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0xffa040 }));
+box.name = 'player'; scene.add(box);   // names show in game_look's on-screen list
+const gem = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshStandardMaterial({ color: 0xffe14d }));
+gem.name = 'coin'; scene.add(gem);
+
+let last = null;
+function loop(now) {
+  requestAnimationFrame(loop);
+  // elapsed game time, never more than 0.1 s a frame; the first frame counts as one (time before it was the page loading)
+  step(last === null ? 1 / 60 : Math.min((now - last) / 1000, 0.1));
+  last = now;
+  box.position.set(player.x, player.y, 0);
+  gem.position.set(coin.x, coin.y, 0);
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(loop);
+
+// One input path for real keys and the harness's act().
+const act = ({ key, down = true }) => { if (down) held.add(key); else held.delete(key); };
+addEventListener('keydown', e => act({ key: e.key }));
+addEventListener('keyup', e => act({ key: e.key, down: false }));
+
+const copy = (p) => ({ x: +p.x.toFixed(3), y: +p.y.toFixed(3) });
+window.__game = {
+  describe: () => ({ name: 'coin collector', units: 'world units, y up', keys: { ArrowLeft: 'hold to move left', ArrowRight: 'hold to move right', ArrowUp: 'hold to move up', ArrowDown: 'hold to move down' } }),
+  observe: () => ({ score, player: copy(player), coin: copy(coin) }),
+  act,
+  setState: (s) => {   // every schema key, applied at once
+    if (s.score !== undefined) score = s.score;
+    if (s.player) player = { ...s.player };
+    if (s.coin) coin = { ...s.coin };
+  },
+};
+</script>
+</body></html>
