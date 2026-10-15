@@ -31,4 +31,5 @@ jobs:
           [[ "$GITHUB_REF_NAME" == "$want" ]] || { echo "::error::tag $GITHUB_REF_NAME does not match package.json ($want)"; exit 1; }
       # the build marks itself private so a clone is never published by accident
       - run: npm pkg delete private
-      - run: npm publish --access public
+      # verbose shows the OIDC exchange: on a refused exchange npm logs the registry's reason and falls back to no token
+      - run: npm publish --access public --loglevel verbose

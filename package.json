@@ -1,6 +1,6 @@
 {
   "name": "paprika3d",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "paprika3D: the toolset that makes any coding agent a better three.js developer. A Claude Code plugin and MCP server that lets the agent see, play, inspect, build and speed up the three.js, React Three Fiber and WebGL pages it writes.",
   "keywords": [

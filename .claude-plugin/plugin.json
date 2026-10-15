@@ -1,6 +1,6 @@
 {
   "name": "paprika3d",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "The toolset that makes your coding agent a better three.js developer: it sees, plays, inspects, builds and speeds up the three.js, React Three Fiber and WebGL pages it writes, in headless Chrome on a paused, seeded clock. What is on screen and what never appears, keys in and state out, mesh stats, procedural geometry, frame-time budgets with an optimizer, and a check after every edit.",
   "keywords": [
     "threejs",
