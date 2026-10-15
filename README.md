@@ -1,31 +1,95 @@
-# Game harness
+# paprika3D: the toolset that makes your coding agent a better three.js developer
 
-A test harness for three.js games that an agent builds. It runs the game in a headless Chrome on a paused, seeded clock so every input and check is exact and repeatable. For a game with exact rules it can also turn the user's prompt into a **game contract** (keypoints the game must pass) and tell the agent when an edit breaks or fixes a keypoint. It also measures frame time against a budget and picks the optimizations that help. Every check, perf and optimize run is recorded in Paprika when it is installed.
-
-It is five things in one folder:
-
-- `@keeno/game-harness`: an MCP server with eleven `game_*` tools, and a `game-harness` command line.
-- A Claude Code plugin whose root is this folder: the MCP server, an after-edit hook that checks the contract in the background (silent until a game opens), a guard that refuses edits to `game-contract.json`, and the `threejs-game` skill.
-- `@keeno/three-runtime` (`runtime/`): the browser-side optimizer layer a game imports.
-- `@keeno/game-store` (`store/`): game state in fixed-size arrays, a generated `window.__game`, rewind and Rapier in a worker; tried in the benchmark's `store` arm before it reaches the skill.
-- `@keeno/game-geo` (`geo/`): procedural geometry for games (see below).
-
-It never captures the screen: every picture is of its own headless page.
+paprika3D is a Claude Code plugin and MCP server that lets a coding agent open, look at, play, measure and fix the three.js, React Three Fiber and WebGL pages it writes, before it tells you they are done: it **sees** the scene as data, **plays** the page on an exact clock, **inspects** any mesh or value, **builds** shapes with real geometry, and **speeds up** the frame.
 
 ## Install
 
-Needs Google Chrome, and Node 20.11 or later for the stable build (Bun for the dev build and a clone). It is published as the plugin **paprika**:
+Needs Google Chrome and Node 20.11 or later.
 
 ```bash
-claude plugin marketplace add JC-Keeno/paprika
-claude plugin install paprika@paprika
+claude plugin marketplace add paprika3d/paprika3d
+claude plugin install paprika3d@paprika3d
 ```
 
-Dev builds, one per green push to `main`, are for invited collaborators of the private repo JC-Keeno/paprika-dev: `claude plugin marketplace add JC-Keeno/paprika-dev#dev`, then `claude plugin install paprika@paprika-dev`. Claude Code clones it with your own git login, so first run `gh auth login` and `gh auth setup-git` (or have a GitHub SSH key loaded). Only the dev build has the 3D asset search (`game_asset`), over the model catalog the tester hosts in `~/.game-harness/assets` (see below); the stable build has none. From a clone, `claude --plugin-dir ~/Projects/game-harness` loads this folder as `game-harness`, and the first run installs its dependencies and builds `runtime/dist/`.
+Chrome is found at its usual macOS path; elsewhere, set `PAPRIKA3D_CHROME` to the Chrome executable. For other agents, see [Other agents](#other-agents).
 
-## The game convention
+Docs: [https://paprika3d.com/docs](https://paprika3d.com/docs). The `window.__game` convention: [https://paprika3d.com/docs/convention](https://paprika3d.com/docs/convention). For LLMs: [https://paprika3d.com/docs/llms.txt](https://paprika3d.com/docs/llms.txt).
 
-A game the harness can check exposes `window.__game` once its page has loaded:
+It works on any three.js, React Three Fiber or WebGL page: a game, a product viewer or configurator, a simulation, a shader or post-processing demo. The page needs no changes to be opened, looked at, driven and inspected.
+
+## What your agent gets
+
+A three.js page is one `<canvas>`: from outside it is a picture. paprika3D works inside it, with the 3D scene itself.
+
+| Your agent asks | paprika3D answers |
+|---|---|
+| What is on screen? | Every named object with its share of the image and its box, plus each one that never appears, with its size and whether it is behind the camera, outside the view or too small to draw |
+| Did my model load? | Reported when the page opens: the model, texture and sound files fetched, and every load that failed |
+| What happens when I press Space? | The key goes in on an exact frame of a paused, seeded clock (1/60 s per frame), so the same inputs give the same frames and state every run |
+| What is the game's state? | The state as JSON before and after each input |
+| How big is this mesh? Is it closed? | Found without changes to the page: triangles, bounds, closed or open edges, volume and genus per mesh, and any JavaScript run against `scene`, `camera` and `renderer` |
+| Is it fast enough? | Frame time, draw calls, triangles and asset size against a desktop, mobile or Quest budget |
+| How do I make it faster? | `game_optimize` tries resolution scaling, instancing, LOD and disposal, and keeps only what helps without changing the picture |
+| Does the hit feel like anything? | Camera shake, scale pops, eased moves versus teleports, flashes, spawned objects and sounds after an event |
+| Can it build the shape I need? | `geo.js` in the project: booleans, hull, extrude, revolve and seeded scatter, with Manifold built in |
+
+It never captures your screen: every picture is of its own headless page.
+
+## What it catches
+
+Here is `game_look` on a mini golf page an agent wrote from a spec that said "scale the car to 0.8":
+
+```
+On screen (14):
+Mesh 17.4% [399, 240, 880, 771]
+…
+Never visible: ToyCar (0.0338 units, in view), Glass (0.0168 units, in view)
+```
+
+The car is there, in view, and 3 cm long on an 8-metre course. In the runs below, two agents opened a page like this, looked at the screenshot and still missed the car; this line names it.
+
+Measured with Sonnet 5.5 in clean installs, on long, exact three.js specs that each ship a glTF model:
+
+| | Agent alone | With paprika3D |
+|---|---|---|
+| Imported model left at the wrong scale or not loaded | 10 of 11 runs | 2 of 11 runs |
+| Draco-compressed model that never loaded ("No DRACOLoader instance provided") | 3 of 3 runs | 0 of 3 runs |
+
+With the tools installed but no reminder, the agent opened its page in 0 of 6 runs; with the reminder the plugin now gives once per session, 10 of 11. Game logic was right in every arm on these tasks, so the gain is in what only looking shows: imported assets, scale, framing and failed loads. A run costs about 1.5 to 2 times the dollars and 2 to 7 times the wall time. These are small samples (3 to 5 runs per task, one model).
+
+## For agents: the loop
+
+To ask for it in a prompt, say **use paprika3d to playtest**.
+
+Use these tools after writing or changing any three.js, React Three Fiber or WebGL page, before saying it is done.
+
+1. **Open it:** `game_open` with `url: "index.html"` (the folder is served) or `command: "bunx vite"`. Read the `Loaded:` and `Failed to load:` lines.
+2. **Look:** `game_look`. Read `Never visible:`. An object of 0.07 units in a scene 8 units wide is at the wrong scale; `behind the camera` or `outside the view` is a framing problem. Open the picture it saves.
+3. **Drive it:** for each interaction the request names, call `game_act` and read the state it returns. Use `game_clock` to step time.
+4. **Ask the scene:** `game_eval` answers questions about sizes, materials and positions, and can try a change in the page before you write it into the source.
+5. **Fix it, then look again.** Call `game_perf` when performance matters.
+
+For a game with exact rules (scoring, collisions, turn order, stated numbers), lock a **game contract** with `game_contract` and call `game_check` after each change. A hook also checks after each edit in the background. The `threejs-game` skill has the full method and templates for plain three.js, React Three Fiber and Rapier.
+
+## Tools
+
+| Tool | What it does |
+|---|---|
+| `game_open` | Opens the page (a file or folder, an http URL, or a dev-server command) in headless Chrome on a paused, seeded clock, and lists the model, texture and sound files the page fetched and every fetch that failed |
+| `game_look` | A picture, an ID image (one colour per object) and the list of named objects on screen, plus the named objects no look has seen yet with their size and where they are (behind the camera, outside the view, or in view but drawing no pixel); with `target`, one named object alone from the front, right, top and a three-quarter angle in one picture |
+| `game_act` | Sends keys, mouse, touch or `__game.act` actions frame by frame, with the state before and after |
+| `game_observe` | The page's state (its `__game.observe()`, or its named three.js objects), renderer counts, new console errors and what changed since the last observe |
+| `game_eval` | Runs JavaScript in the page with `scene`, `camera`, `renderer`, `find(name)` and `stats(target)` in scope, and replies with what it returns; `stats` gives each mesh's vertices, triangles, bounds, attributes, materials, closed or open edges, volume and genus. Replies are capped at 2,048 characters, with the full text saved in the run folder |
+| `game_clock` | Steps frames, pauses or resumes real-time play, sets the time scale |
+| `game_feel` | Sends the steps that cause an event, then watches the next frames for camera shake, scale pops, eased moves versus teleports, colour flashes, spawned objects, HUD text ticks and sounds |
+| `game_perf` | Frame time, draw calls, triangles and asset size against a budget (desktop, mobile, quest, or the contract's) |
+| `game_optimize` | Only when a check says the frame is over budget, or the user asks about performance: measures, tries the runtime's switches, keeps those that help without failing a keypoint or changing the picture, writes `game-runtime.json`, and ends with the final check |
+| `game_contract` | Turns the user's prompt into `game-contract.json`, written by a fresh subagent that has seen no game code; its hash is kept outside the project, so a hand-edited contract is refused |
+| `game_check` | Runs the contract, each keypoint on a freshly loaded page; its last line is the frame time the keypoints stepped at, against the budget |
+
+## Making a game checkable
+
+Any page can be opened, looked at and driven. To check its rules, a game also exposes `window.__game` once its page has loaded:
 
 ```js
 window.__game = {
@@ -39,24 +103,7 @@ window.__game = {
 // Randomness comes only from Math.random (seeded). Keys listen on window and match event.key.
 ```
 
-The full rules are in `skills/threejs-game/SKILL.md`, with templates for plain three.js, React Three Fiber and Rapier beside it.
-
-## Tools
-
-| Tool | What it does |
-|---|---|
-| `game_contract` | Turns the user's prompt into `game-contract.json`, written by a fresh subagent that has seen no game code; its hash is kept outside the project, so a hand-edited contract is refused |
-| `game_open` | Opens the game (a file or folder, an http URL, or a dev-server command) in headless Chrome on a paused, seeded clock |
-| `game_observe` | The game's state, renderer counts, new console errors and what changed since the last observe |
-| `game_eval` | Runs JavaScript in the page with `scene`, `camera`, `renderer`, `find(name)` and `stats(target)` in scope, and replies with what it returns; `stats` gives each mesh's vertices, triangles, bounds, attributes, materials, closed or open edges, volume and genus. Replies are capped at 2,048 characters, with the full text saved in the run folder |
-| `game_act` | Sends keys, mouse, touch or `__game.act` actions frame by frame, with the state before and after |
-| `game_clock` | Steps frames, pauses or resumes real-time play, sets the time scale |
-| `game_look` | A picture, an ID image (one colour per object) and the list of named objects on screen; with `target`, one named object alone from the front, right, top and a three-quarter angle in one picture |
-| `game_feel` | Sends the steps that cause an event, then watches the next frames for camera shake, scale pops, eased moves versus teleports, colour flashes, spawned objects, HUD text ticks and sounds |
-| `game_check` | Runs the contract, each keypoint on a freshly loaded page; its last line is the frame time the keypoints stepped at, against the budget |
-| `game_perf` | Frame time, draw calls, triangles and asset size against a budget (desktop, mobile, quest, or the contract's) |
-| `game_optimize` | Only when a check says the frame is over budget, or the user asks about performance: measures, tries the runtime's switches, keeps those that help without failing a keypoint or changing the picture, writes `game-runtime.json`, and ends with the final check |
-| `game_asset` | Bench-only until the `asset` arm earns it (listed only with `GAME_HARNESS_ASSETS=1`): finds a CC0 model for one thing the game needs (a `query` plus a `role`), answers with the best match and two alternates, and `pick` copies it into the project with the exact loading code (size, floor-centred origin, animation clips, a `height` to scale it); `inspect` describes any GLB |
+The full rules are in `skills/threejs-game/SKILL.md` and at [https://paprika3d.com/docs/convention](https://paprika3d.com/docs/convention).
 
 ## The runtime import
 
@@ -71,28 +118,37 @@ It does nothing until `game_optimize` has written `game-runtime.json` (also into
 
 ## Procedural geometry
 
-`game_open` puts `geo.js` in the project: `@keeno/game-geo` (`geo/`), one file with Manifold built in, for booleans, hull, extrude and revolve, plus a seeded `scatter`. Import it with `import { geo, scatter } from "./geo.js";` (`"../geo.js"` from `src/` in a vite project). Recipes are in `skills/threejs-game/references/geometry.md`.
+`game_open` puts `geo.js` in the project: one file with Manifold built in, for booleans, hull, extrude and revolve, plus a seeded `scatter`. Import it with `import { geo, scatter } from "./geo.js";` (`"../geo.js"` from `src/` in a vite project). Recipes are in `skills/threejs-game/references/geometry.md`.
+
+## Other agents
+
+The MCP server runs on Node 20.11 or later with Google Chrome, and needs no install step. Clone this repo and point your MCP client at `src/cli.js serve`:
+
+```bash
+git clone https://github.com/paprika3d/paprika3d.git
+```
+
+```json
+{
+  "mcpServers": {
+    "paprika3d": {
+      "command": "node",
+      "args": ["/path/to/paprika3d/src/cli.js", "serve"]
+    }
+  }
+}
+```
+
+Every tool takes the project folder as `cwd`. The after-edit hook and the `threejs-game` skill are Claude Code features; other agents can read `AGENTS.md` and `skills/threejs-game/SKILL.md` for the same method.
 
 ## Where runs go
 
-- `<project>/game-harness/runs/<time>/`: each run's pictures and `run.json`. `<project>/game-harness/state.json` holds the iteration count, the last 200 runs and how the hook reaches the running server. Add `game-harness/` to the project's `.gitignore`.
-- `~/.game-harness/issued.json` (or `$GAME_HARNESS_HOME`): the hash of each issued contract.
-- `~/.game-harness/assets/`: the model catalog (`catalog.sqlite`, one row per model with its licence, size, origin, triangle count and clip names, plus FTS) and `models/<pack>/<name>.glb`, each meshopt-compressed with WebP textures. `bun run src/cli.ts ingest [DIR]` adds the CC0 models under DIR (default `/Users/Shared/aa3d/assets`, the AA-3D download: Kenney and KayKit), skipping anything without a CC0 licence file and Quaternius, whose licence forbids redistributing files. The catalog never ships with the plugin.
-- `game_asset` search ranks by SigLIP 2 vectors (eight rendered views per model) when they are loaded, and falls back to name search otherwise. Its `size` option is a real-world height estimated per model: tiny under 0.3 m, small 0.3–1 m, medium 1–3 m, large 3–10 m, huge over 10 m. `bun run src/cli.ts vectors FILE` and `sizes FILE` load the two files the asset-search experiment (`experiments/asset-search/` at the repo root) exports with `uv run bench.py export --catalog ~/.game-harness/assets/catalog.sqlite` and `uv run bench.py export --sizes`. Newly ingested models have neither, so worded searches can't find them until they are rendered, embedded and sized in that experiment, then exported and loaded. The first search downloads the text model, about 577 MB, to `~/.game-harness/models/`.
-- Paprika: each run is an action row (`source: "game-harness"`) dropped in `~/.paprika/spool/` (or `$PAPRIKA_HOME`), with its result, wall-clock time, iteration count and the edit that triggered it. It shows on the page of the run's picture.
+- `<project>/paprika3d/runs/<time>/`: each run's pictures and `run.json`. `<project>/paprika3d/state.json` holds the iteration count, the last 200 runs and how the hook reaches the running server. Add `paprika3d/` to the project's `.gitignore`.
+- `~/.paprika3d/issued.json` (or `$PAPRIKA3D_HOME`): the hash of each issued contract.
+- The Paprika app: when it is installed, each check, perf and optimize run is an action row dropped in `~/.paprika/spool/` (or `$PAPRIKA_HOME`), with its result, wall-clock time, iteration count and the edit that triggered it.
 
-## Benchmark
+## License
 
-`bench/` measures whether the plugin helps an agent build three.js games: nineteen tasks, each run with and without the plugin (and the lean and feel arms) in an isolated project, scored against a contract the agent never sees. It needs `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) in the environment. The smoke grid:
-
-```bash
-bun run src/cli.ts bench --tasks snake-portals,breakout-powerups --runs 1 --models opus --conditions with,without
-```
-
-Tasks, scoring and where results go: `bench/README.md`.
-
-## Development
-
-Run `bun install` here once; the root install does not cover this folder. `bun run check` typechecks and runs the tests on real headless Chrome; Paprika's `bun run check` at the repo root runs it too. `bun run perf-test` runs the frame-time tests, which stay out of the release gate.
-
-Publishing (`.github/workflows/publish.yml`): every push and pull request is typechecked, and each build is smoke-tested (installed, its MCP server started, its tools listed and the template game played) before it is published. The test suite needs a Mac (a real GPU for WebGL, `sips`, quiet frame timing), so run `bun run check` here before tagging a stable release. The source lives in the private repo JC-Keeno/paprika-dev. A green push to `main` publishes the dev build to its `dev` branch; a tag `vX.Y.Z` publishes the stable build, and nothing else, to the public repo JC-Keeno/paprika, pushed with the write deploy key in the `PUBLIC_DEPLOY_KEY` secret. `scripts/build-plugin.ts` makes each build: the plugin renamed paprika, with `skills/`, the built runtime and the built `geo.js`. The stable build bundles `src/cli.js` and the two hooks for Node with their dependencies, so an install needs no package manager and no Bun, and leaves out the asset search; the dev build is the Bun source with the run-time dependencies, and turns `game_asset` on with `GAME_HARNESS_ASSETS=1` (about 510 MB). `scripts/smoke-plugin.ts` checks a build's tool list, then plays the skill's plain template in a fresh project (open, observe, eval, act, look, look at one object).
+Apache License 2.0 (`LICENSE`). The packages each build bundles keep their own licences, listed in
+`THIRD_PARTY_NOTICES.md`. "paprika3D" and "paprika3d" are trademarks of Keeno Corp (`NOTICE`); forks are welcome under
+the licence with their own name. Issues are welcome; see `CONTRIBUTING.md` for code.

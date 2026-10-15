@@ -23,6 +23,7 @@
         "hooks": [
           {
             "type": "command",
+            "if": "Edit(**/game-contract.json)",
             "command": "node",
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/guard.js"

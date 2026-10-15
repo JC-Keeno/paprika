@@ -1,7 +1,7 @@
 {
-  "name": "paprika",
-  "version": "0.1.0",
-  "description": "Lets your agent play and test the three.js game it builds: headless Chrome on a paused, seeded clock, keys in and game state out, pictures, mesh stats, procedural geometry, and a check after every edit that says when the game breaks.",
+  "name": "paprika3d",
+  "version": "0.1.1",
+  "description": "The toolset that makes your coding agent a better three.js developer: it sees, plays, inspects, builds and speeds up the three.js, React Three Fiber and WebGL pages it writes, in headless Chrome on a paused, seeded clock. What is on screen and what never appears, keys in and state out, mesh stats, procedural geometry, frame-time budgets with an optimizer, and a check after every edit.",
   "keywords": [
     "threejs",
     "three.js",
@@ -16,8 +16,11 @@
   "author": {
     "name": "Keeno"
   },
+  "homepage": "https://paprika3d.com/docs",
+  "repository": "https://github.com/paprika3d/paprika3d",
+  "license": "Apache-2.0",
   "mcpServers": {
-    "game-harness": {
+    "paprika3d": {
       "command": "node",
       "args": [
         "${CLAUDE_PLUGIN_ROOT}/src/cli.js",
