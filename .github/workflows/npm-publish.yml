@@ -1,0 +1,34 @@
+# Publishes this stable build to npm as `paprika3d` with npm trusted publishing (OIDC, no token; provenance comes from
+# this public repo). Shipped by paprika3d-dev's scripts/build-plugin.ts as .github/workflows/npm-publish.yml, so a
+# release's sync never deletes it. Runs on the v* tag that release pushes here, or by hand for the version on main.
+name: npm-publish
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    if: github.repository == 'paprika3d/paprika3d'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      # trusted publishing needs npm 11.5.1 or later
+      - run: npm install -g npm@latest && npm --version
+      - name: The tag matches package.json
+        if: github.event_name == 'push'
+        run: |
+          want="v$(node -p 'require("./package.json").version')"
+          [[ "$GITHUB_REF_NAME" == "$want" ]] || { echo "::error::tag $GITHUB_REF_NAME does not match package.json ($want)"; exit 1; }
+      # the build marks itself private so a clone is never published by accident
+      - run: npm pkg delete private
+      - run: npm publish --access public
