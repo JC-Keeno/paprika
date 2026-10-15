@@ -1,8 +1,37 @@
 {
   "name": "paprika3d",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
+  "description": "paprika3D: the toolset that makes any coding agent a better three.js developer. A Claude Code plugin and MCP server that lets the agent see, play, inspect, build and speed up the three.js, React Three Fiber and WebGL pages it writes.",
+  "keywords": [
+    "threejs",
+    "three.js",
+    "webgl",
+    "react-three-fiber",
+    "game",
+    "gamedev",
+    "testing",
+    "headless",
+    "mcp",
+    "mcp-server",
+    "claude-code",
+    "claude-code-plugin",
+    "agent",
+    "paprika",
+    "paprika3d"
+  ],
+  "homepage": "https://paprika3d.com/docs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paprika3d/paprika3d.git"
+  },
+  "bugs": {
+    "url": "https://github.com/paprika3d/paprika3d/issues"
+  },
   "license": "Apache-2.0",
+  "author": {
+    "name": "Keeno Corp"
+  },
   "type": "module",
   "bin": {
     "paprika3d": "src/cli.js"
